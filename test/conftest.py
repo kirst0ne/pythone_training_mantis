@@ -18,19 +18,13 @@ def load_config(file):
 
 
 @pytest.fixture(scope="session")
-def config(request):
-    return load_config(request.config.getoption("--target"))
-
-
-@pytest.fixture(scope="session")
-def app(request, config):
+def app(request):
     global fixture
-    web_config = config["web"]
-    webadmin_config = config["webadmin"]
+    config = load_config(request.config.getoption("--target"))
+    web_config = config['web']
     browser = request.config.getoption("--browser")
-    if fixture is None or not fixture.is_valid():
-        fixture = Application(browser=browser, base_url=web_config['baseUrl'])
-    fixture.session.ensure_login(username=webadmin_config['username'], password=webadmin_config['password'])
+    base_url = web_config['baseUrl']
+    fixture = Application(browser=browser, base_url=base_url, config=config)
 
     def fin():
         fixture.session.ensure_logout()
