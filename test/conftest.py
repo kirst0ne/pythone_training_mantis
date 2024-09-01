@@ -27,11 +27,19 @@ def app(request):
     fixture = Application(browser=browser, base_url=base_url, config=config)
 
     def fin():
-        fixture.session.ensure_logout()
         fixture.destroy()
 
     request.addfinalizer(fin)
     return fixture
+
+
+@pytest.fixture(scope="function")
+def ensure_login(app, request):
+    config = load_config(request.config.getoption("--target"))
+    webadmin_config = config['webadmin']
+    username = webadmin_config['username']
+    password = webadmin_config['password']
+    app.session.ensure_login(username, password)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -64,4 +72,3 @@ def restore_server_configuration(host, username, password):
 def pytest_addoption(parser):
     parser.addoption("--browser", action="store", default="chrome")
     parser.addoption("--target", action="store", default="target.json")
-

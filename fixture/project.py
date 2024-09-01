@@ -10,6 +10,7 @@ class ProjectHelper:
 
     def open_manage_page(self):
         wd = self.app.wd
+        self.app.open_home_page()
         wd.find_element_by_link_text("Manage").click()
 
     def open_manage_projects_page(self):
