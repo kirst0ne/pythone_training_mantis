@@ -1,7 +1,8 @@
 import pytest
 from fixture.application import Application
 import json
-import os.path
+import os
+import ftputil
 
 fixture = None
 target = None
@@ -16,57 +17,54 @@ def load_config(file):
     return target
 
 
-#@pytest.fixture(scope="session")
-#def app(request):
-#    global fixture
-#    config = load_config(request.config.getoption("--target"))
-#    web_config = config['web']
-#    webadmin_config = config['webadmin']
-#    browser = request.config.getoption("--browser")
-#    fixture = Application(browser=browser, base_url=web_config['baseUrl'])
-#    username = webadmin_config['username']
-#    password = webadmin_config['password']
-#    fixture.session.ensure_login(username, password)
+@pytest.fixture(scope="session")
+def config(request):
+    return load_config(request.config.getoption("--target"))
 
-#    def fin():
-#        fixture.session.ensure_logout()
-#        fixture.destroy()
-#    request.addfinalizer(fin)
-#    return fixture
 
-#@pytest.fixture(scope="session")
-#def app(request):
-#    global fixture
-#    config = load_config(request.config.getoption("--target"))
-#    web_config = config["web"]
-#    webadmin_config = config["webadmin"]
-#    browser = request.config.getoption("--browser")
-#    if fixture is None or not fixture.is_valid():
-#        fixture = Application(browser=browser, base_url=web_config['baseUrl'])
-#        username = webadmin_config['username']
-#        password = webadmin_config['password']
-#        fixture.session.ensure_login(username, password)
-#    return fixture
-
-@pytest.fixture
-def app(request):
+@pytest.fixture(scope="session")
+def app(request, config):
     global fixture
-    config = load_config(request.config.getoption("--target"))
-    browser = request.config.getoption("--browser")
     web_config = config["web"]
     webadmin_config = config["webadmin"]
+    browser = request.config.getoption("--browser")
     if fixture is None or not fixture.is_valid():
         fixture = Application(browser=browser, base_url=web_config['baseUrl'])
     fixture.session.ensure_login(username=webadmin_config['username'], password=webadmin_config['password'])
-    return fixture
 
-@pytest.fixture(scope="session", autouse=True)
-def stop(request):
     def fin():
         fixture.session.ensure_logout()
         fixture.destroy()
+
     request.addfinalizer(fin)
     return fixture
+
+
+@pytest.fixture(scope="session", autouse=True)
+def configure_server(request):
+    config = load_config(request.config.getoption("--target"))
+    install_server_configuration(config['ftp']['host'], config['ftp']['username'], config['ftp']['password'])
+
+    def fin():
+        restore_server_configuration(config['ftp']['host'], config['ftp']['username'], config['ftp']['password'])
+    request.addfinalizer(fin)
+
+
+def install_server_configuration(host, username, password):
+    with ftputil.FTPHost(host, username, password) as remote:
+        if remote.path.isfile("config_inc.php.bak"):
+            remote.remove("config_inc.php.bak")
+        if remote.path.isfile("config_inc.php"):
+            remote.rename("config_inc.php", "config_inc.php.bak")
+        remote.upload(os.path.join(os.path.dirname(__file__), "../resourses/config_inc.php"), "config_inc.php")
+
+
+def restore_server_configuration(host, username, password):
+    with ftputil.FTPHost(host, username, password) as remote:
+        if remote.path.isfile("config_inc.php.bak"):
+            if remote.path.isfile("config_inc.php"):
+                remote.remove("config_inc.php")
+            remote.rename("config_inc.php.bak", "config_inc.php")
 
 
 def pytest_addoption(parser):
