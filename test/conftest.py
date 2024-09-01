@@ -64,3 +64,4 @@ def restore_server_configuration(host, username, password):
 def pytest_addoption(parser):
     parser.addoption("--browser", action="store", default="chrome")
     parser.addoption("--target", action="store", default="target.json")
+
